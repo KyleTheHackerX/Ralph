@@ -26,7 +26,7 @@ public class Camera extends Thread {
 		CvSource outputStream = CameraServer.getInstance().putVideo(streamname, 640, 480);
 
 		Mat mat = new Mat();
-
+		
 		while (!Thread.interrupted()) {
 			if (cvSink.grabFrame(mat) == 0) {
 				outputStream.notifyError(cvSink.getError());

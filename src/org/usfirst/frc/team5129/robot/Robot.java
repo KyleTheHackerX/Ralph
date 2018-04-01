@@ -1,182 +1,200 @@
 package org.usfirst.frc.team5129.robot;
 
-import org.usfirst.frc.team5129.subsystems.Camera;
-import org.usfirst.frc.team5129.subsystems.FuelCollection;
-import org.usfirst.frc.team5129.subsystems.FuelCollection.FState;
-import org.usfirst.frc.team5129.subsystems.Lift;
-import org.usfirst.frc.team5129.subsystems.Lift.LState;
+import java.sql.Timestamp;
+import java.util.Timer;
+import java.util.TimerTask;
 
+import org.usfirst.frc.team5129.annot.Autonomous;
+import org.usfirst.frc.team5129.annot.ForField;
+import org.usfirst.frc.team5129.annot.Init;
+import org.usfirst.frc.team5129.annot.TeleOperated;
+import org.usfirst.frc.team5129.subsystems.Camera;
+import org.usfirst.frc.team5129.subsystems.Drive;
+import org.usfirst.frc.team5129.subsystems.FuelCollection;
+import org.usfirst.frc.team5129.subsystems.Lift;
+import org.usfirst.frc.team5129.subsystems.stages.FState;
+import org.usfirst.frc.team5129.subsystems.stages.LState;
+
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID.Hand;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.RobotState;
 import edu.wpi.first.wpilibj.Spark;
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.XboxController;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
+@ForField
 public class Robot extends IterativeRobot {
-	
-	enum MsgType {
-		
-		DEBUG("[System] [Debug]: "),
-		OK("[System]: "),
-		WARNING("[System] [WARNING]: "),
-		ERROR("[System] [ERROR]: "),
-		CONTROLS("[Controls]"),
-		REG("");
-		
-		private String value;
-		
-		MsgType(String value) {
-			this.value = value;
-		}
-		
-		public String getValue() {
-			return value;
-		}
-	}
-	
-	private RobotDrive drive; // Although a subsystem, there is no need for a user-made object.
-	private Timer time; // Driver Station Timer
-	private boolean hasAuto = false; // Has Autonomous run once?
 
+	@TeleOperated
+	private Drive drive;
 	private Joystick stick;
 	private XboxController controller;
- 
-	private Lift lift; // Drive should go in the negative direction. Do NOT drive positive!
-	private FuelCollection collect; 
-	private Camera cam;
+	private Lift lift;
+	private FuelCollection collect;
+
+	private boolean hasAuto = false;
+	private boolean switchRegular = false;
+	private int seconds = 0;
 	
+	private Timer time = new Timer();
+	private Camera cam;
+
+	@Init
 	@Override
 	public void robotInit() {
-		drive = new RobotDrive(1,0,3,2);
-		drive.setInvertedMotor(RobotDrive.MotorType.kFrontRight, true);
-		drive.setInvertedMotor(RobotDrive.MotorType.kFrontLeft, true);
-		drive.setInvertedMotor(RobotDrive.MotorType.kRearRight, true);
-		drive.setInvertedMotor(RobotDrive.MotorType.kRearLeft, true);
-		time = new Timer();
+		drive = new Drive(1, 0, 3, 2);
+		invert();
 		lift = new Lift(new Spark(8));
 		collect = new FuelCollection(new Spark(9));
-		cam = new Camera("ROBOCAM");
+		cam = new Camera("USB Camera 0");
 		cam.start();
-		stick = new Joystick(0); // Logitech Extreme should go here.
-		if (stick.getPort() != 0) {
-			debug(MsgType.WARNING, "Joystick is on different port. Check the driver station.");
+		stick = new Joystick(0);
+		if (stick.getPort() != 0 || stick == null) {
+			reportToDS("Joystick is in wront port (Expected 0). Check the DRIVER STATION.", false);
 		}
-		controller = new XboxController(1); // XBCTRLR should go here.
-		if (controller.getPort() != 1) {
-			debug(MsgType.WARNING, "Xbox Controller is on different port. Check the driver station.");
+		controller = new XboxController(1);
+		if (controller.getPort() != 1 || controller == null) {
+			reportToDS("Xbox Controller is in wront port (Expected 1). Check the DRIVER STATION.",
+					false);
 		}
 		drive.setSafetyEnabled(false);
-		debug(MsgType.WARNING, "Safety is disabled.");
-		debug(MsgType.OK, "Robot Initialized! Driver station is ready.");
+		updateDashboard();
 	}
 
+	@Init
+	@Autonomous
 	@Override
 	public void autonomousInit() {
-		time.start();
-		debug(MsgType.DEBUG, "Entered Autonomous Mode.");
-		hasAuto = true;
-		debug(MsgType.WARNING, "'hasAuto' set to true. Timer will reset on mode switch.");
-	}
-
-	@Override
-	public void autonomousPeriodic() {
 		
 	}
-	
+
+	@Autonomous
 	@Override
-	public void teleopInit() {
-		debug(MsgType.DEBUG, "Entered Tele-operated Mode.");
-		if (hasAuto) {
-			time.reset();
-			time.start();
-			debug(MsgType.WARNING, "'hasAuto' set to true. It is reccomended to disable the robot "
-					+ "before entering autonomous again.");
-		} else {
-			time.start();
+	public void autonomousPeriodic() {
+		updateDashboard();
+		collect.setState(FState.RUNNINGIN);
+		collect.call(collect.getState());
+		
+		if (!hasAuto) {
+			time.schedule(new TimerTask() {
+				@Override
+				public void run() {
+					seconds++;
+					drive.driveForward(true);
+					if (seconds == 3) {
+						drive.stopMotor();
+						this.cancel();
+					}
+				}
+				
+			}, 0, 1000);
+			hasAuto = true;
 		}
 	}
 
-	/*
-	 * WARNING: While loop is called @ updateLift(); Make sure you don't activate the lift 
-	 * unless you need to, as the controls wont be updated until the loop exits. If Taylor wishes, she
-	 * can allow the toggle again. To prevent accidental use, updateLift(); will check the state of the
-	 * collection mechanism to see if it's running.
-	 */
+	@Init
+	@TeleOperated
+	@Override
+	public void teleopInit() {
+		seconds = 0;
+		hasAuto = false;
+		time.cancel();
+	}
+
 	@Override
 	public void teleopPeriodic() {
 		while (RobotState.isOperatorControl() && RobotState.isEnabled()) {
 			drive.arcadeDrive(stick, true);
 			updateCollect();
 			collect.call(collect.getState());
-			lift.call(lift.getState());
 			updateLift();
+			lift.call(lift.getState());
+			updateDashboard();
 		}
 	}
 
+	@Init
 	@Override
 	public void testInit() {
-		debug(MsgType.DEBUG, "Entered Test Mode.");
-		if (hasAuto) {
-			time.reset();
-			time.start();
-			debug(MsgType.WARNING, "'hasAuto' set to true. It is reccomended to disable the robot "
-					+ "before entering autonomous again.");
-		} else {
-			time.start();
-		}
-		debug(MsgType.WARNING, "This is not for the competition, obviously!");
+
 	}
-	
+
 	@Override
 	public void testPeriodic() {
+		while (stick.getTrigger() && RobotState.isEnabled()) {
+			drive.arcadeDrive(stick, true);
+			updateCollect();
+			collect.call(collect.getState());
+			updateLift();
+			lift.call(lift.getState());
+			updateDashboard();
+		}
 	}
-	
+
+	@Init
 	@Override
 	public void disabledInit() {
-		debug(MsgType.DEBUG, "Disabled Mode. Freeing Drivers...");
+		seconds = 0;
 		hasAuto = false;
-		debug(MsgType.WARNING, "'hasAuto' set to false.");
-		
+		stopAllMotors();
 	}
-	
-	@Override
-	public void disabledPeriodic() {
-	}
-	
-	private void debug(MsgType type, String msg) {
-		System.out.println(type.getValue() + msg);
-	}
-	
+
 	/**
 	 * Controls: [LBUMPER - RUNNING_IN] [RBUMPER - RUNNING_OUT] [X - STOP]
 	 */
 	private void updateCollect() {
 		if (controller.getBumper(Hand.kLeft)) {
 			collect.setState(FState.RUNNINGIN);
-			debug(MsgType.CONTROLS, "Collection > RUNNING_IN");
 		} else if (controller.getBumper(Hand.kRight)) {
 			collect.setState(FState.RUNNINGOUT);
-			debug(MsgType.CONTROLS, "Collection > RUNNING_OUT");
 		}
 		if (controller.getXButton()) {
 			collect.setState(FState.STOPPED);
-			debug(MsgType.CONTROLS, "Collection > STOPPED");
 		}
 	}
-	
+
 	/**
 	 * Controls: [Y - RUNNING Lift] [B - STOP Lift]
 	 */
 	private void updateLift() {
 		if (controller.getYButton()) {
-			debug(MsgType.CONTROLS, "Lift > RUNNING");
 			lift.setState(LState.RUNNING);
 		} else if (controller.getBButton()) {
-			debug(MsgType.CONTROLS, "Lift > STOPPED");
 			lift.setState(LState.STOPPED);
 		}
 	}
+
+	private void updateDashboard() {
+		SmartDashboard.putString("Lift State ", lift.getState().toString());
+		SmartDashboard.putString("Collection State ", collect.getState().toString());
+		SmartDashboard.putString("Camera State ", cam.getState().toString());
+	}
+
+	private void invert() {
+		drive.setInvertedMotor(RobotDrive.MotorType.kFrontRight, true);
+		drive.setInvertedMotor(RobotDrive.MotorType.kFrontLeft, true);
+		drive.setInvertedMotor(RobotDrive.MotorType.kRearRight, true);
+		drive.setInvertedMotor(RobotDrive.MotorType.kRearLeft, true);
+	}
+
+	private void stopAllMotors() {
+		drive.stopMotor();
+		collect.setState(FState.STOPPED);
+		collect.call(collect.getState());
+		lift.setState(LState.STOPPED);
+		lift.call(lift.getState());
+	}
+	
+	private void reportToDS(String message, boolean isError) {
+		Timestamp t = new Timestamp(System.currentTimeMillis());
+		if (isError) {
+			System.out.println(("[" + t + "] " + message));
+		} else {
+			DriverStation.reportWarning(("[" + t + "] " + message), isError);
+		}
+	}
+
 }

@@ -1,13 +1,11 @@
 package org.usfirst.frc.team5129.subsystems;
 
+import org.usfirst.frc.team5129.subsystems.stages.FState;
+
 import edu.wpi.first.wpilibj.Spark;
 import edu.wpi.first.wpilibj.SpeedController;
 
 public class FuelCollection {
-	
-	public enum FState {
-		RUNNINGIN, RUNNINGOUT, STOPPED;
-	}
 	
 	private Spark collect;
 	

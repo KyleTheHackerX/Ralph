@@ -1,20 +1,18 @@
 package org.usfirst.frc.team5129.subsystems;
 
+import org.usfirst.frc.team5129.subsystems.stages.LState;
+
 import edu.wpi.first.wpilibj.Spark;
 import edu.wpi.first.wpilibj.SpeedController;
 
 public class Lift {
-	
-	public enum LState {
-		RUNNING, STOPPED;
-	}
 	
 	private Spark lift;
 	
 	private LState lState;
 	
 	/**
-	 * Controls the Lift mechanism.
+	 * Controls the Lift mechanism. Only drive negative!
 	 * 
 	 * @param lift
 	 * @see SpeedController
