@@ -22,12 +22,15 @@ import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.RobotState;
 import edu.wpi.first.wpilibj.Spark;
+import edu.wpi.first.wpilibj.Victor;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 @ForField
 public class Robot extends IterativeRobot {
 
+	private Victor frontLeft, frontRight, rearLeft, rearRight;
+	
 	@TeleOperated
 	private Drive drive;
 	private Joystick stick;
@@ -35,9 +38,8 @@ public class Robot extends IterativeRobot {
 	private Lift lift;
 	private FuelCollection collect;
 
-	private boolean hasAuto = false;
-	private boolean switchRegular = false;
-	private int seconds = 0;
+	private Boolean hasAuto = false;
+	private Integer seconds = 0;
 	
 	private Timer time = new Timer();
 	private Camera cam;
@@ -45,7 +47,13 @@ public class Robot extends IterativeRobot {
 	@Init
 	@Override
 	public void robotInit() {
-		drive = new Drive(1, 0, 3, 2);
+		frontLeft = new Victor (1);
+		rearLeft = new Victor  (0);
+		frontRight = new Victor(3);
+		rearRight = new Victor (2);
+		//2301, 0 and 3 inverted
+		//1032 (WORKING), all is inverted
+		drive = new Drive(frontLeft, rearLeft, frontRight, rearRight);
 		invert();
 		lift = new Lift(new Spark(8));
 		collect = new FuelCollection(new Spark(9));
@@ -68,23 +76,29 @@ public class Robot extends IterativeRobot {
 	@Autonomous
 	@Override
 	public void autonomousInit() {
-		
+		seconds = 0;
+		hasAuto = false;
 	}
 
 	@Autonomous
 	@Override
 	public void autonomousPeriodic() {
 		updateDashboard();
-		collect.setState(FState.RUNNINGIN);
-		collect.call(collect.getState());
-		
 		if (!hasAuto) {
 			time.schedule(new TimerTask() {
 				@Override
 				public void run() {
 					seconds++;
-					drive.driveForward(true);
-					if (seconds == 3) {
+					drive.driveBackward();
+//					if (seconds < 5 && !(seconds > 5)) {
+//						drive.driveForward();
+//					} else if (seconds < 8 && !(seconds > 8)) {
+//						frontRight.set(-0.2);
+//						frontLeft.set(0.3);
+//						rearLeft.set(0.3);
+//						rearRight.set(-0.3);
+//					}
+					if (seconds == 4) {
 						drive.stopMotor();
 						this.cancel();
 					}
@@ -99,9 +113,7 @@ public class Robot extends IterativeRobot {
 	@TeleOperated
 	@Override
 	public void teleopInit() {
-		seconds = 0;
-		hasAuto = false;
-		time.cancel();
+
 	}
 
 	@Override

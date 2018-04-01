@@ -1,6 +1,7 @@
 package org.usfirst.frc.team5129.subsystems;
 
 import edu.wpi.first.wpilibj.RobotDrive;
+import edu.wpi.first.wpilibj.Victor;
 
 public class Drive extends RobotDrive {
 
@@ -9,15 +10,13 @@ public class Drive extends RobotDrive {
 		// TODO Auto-generated constructor stub
 	}
 	
-	public void driveForward(boolean poweredLeft) {
-		if (poweredLeft) {
-			this.m_frontLeftMotor.set(-0.2);
-			this.m_frontRightMotor.set(-0.3);
-			this.m_rearLeftMotor.set(-0.2);
-			this.m_rearRightMotor.set(-0.3);
-		} else {
-			this.drive(-0.3, 0);
-		}
+	public Drive(Victor frontLeftMotor, Victor rearLeftMotor, Victor frontRightMotor, Victor rearRightMotor) {
+		super(frontLeftMotor, rearLeftMotor, frontRightMotor, rearRightMotor);
+		// TODO Auto-generated constructor stub
+	}
+	
+	public void driveForward() {
+		this.drive(-0.3, 0);
 	}
 	
 	public void driveBackward() {
