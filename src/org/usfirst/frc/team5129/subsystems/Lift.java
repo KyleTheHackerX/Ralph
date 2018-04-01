@@ -14,7 +14,7 @@ public class Lift {
 	private LState lState;
 	
 	/**
-	 * Controls the Lift mechanism. Only drive negative!
+	 * Controls the Lift mechanism.
 	 * 
 	 * @param lift
 	 * @see SpeedController
